@@ -276,5 +276,9 @@ def download_file(n_csv, n_excel, pathname):
         return dict(content=b64, filename=f"{sheet_name}.xlsx", base64=True)
 
 # === Run Server ===
+import os
+
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 8050))
+    app.run(host="0.0.0.0", port=port)
+
