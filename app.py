@@ -103,17 +103,29 @@ def kpi_card(label, value, is_percent=False, target=None, inverse=False):
         ])
     ], style=card_style)
 
-# === Home Layout ===
+
+# === Home Layout with Updated Logic ===
 def layout_home():
     kpi_cards = []
 
     if not dashboard_mtd.empty:
+        # Columns that need percent formatting
+        percent_cols = {
+            "SHORT CALL%", "IVRS ANS%", "ANS%", "CMS ABAND%", "SL%",
+            "ENTRY LEVEL%", "SECOND LEVEL%", "THIRD LEVEL%"
+        }
+
+        # Columns that need rounding
+        round_cols = {"IVRS AHT", "AVG WAIT TIME", "AHT"}
+
+        # Columns to exclude
         exclude = {
             "Date", "Date_str", "MTD",
-            "DISPOSED_AT_IVR", "DISP < 10SEC", "Disp W/O<10SEC", "SHORT CALL%",
-            "IVRS AHT", "Req 4 AGENT", "IVRS ANS%", "OFFERED", "NET ANSWERED", "Short Ans",
-            "ABAN CALLS", "SHORT ABAN<10SEC", "Ans Within 90 Sec", "90 SEC ABOVE ABAND CALLS",
-            "Ans exceeds 90 Sec", "AVG WAIT TIME", "Entry Level", "Second Level", "Third Level",
+            "DISPOSED_AT_IVR", "DISP < 10SEC", "Disp W/O<10SEC",
+            "Req 4 AGENT", "OFFERED", "NET ANSWERED", "Short Ans",
+            "ABAN CALLS", "SHORT ABAN<10SEC", "Ans Within 90 Sec",
+            "90 SEC ABOVE ABAND CALLS", "Ans exceeds 90 Sec",
+            "Entry Level", "Second Level", "Third Level",
             "Entry Level Fixed", "Second Level Fixed", "Third Level Fixed",
             "Entry Level Met", "Second Level Met", "Third Level Met"
         }
@@ -123,14 +135,17 @@ def layout_home():
                 continue
 
             val = dashboard_mtd.get(col, None)
-            is_percent = False
-            col_lower = col.strip().lower()
-            if "%" in col or col_lower.endswith("%") or "sl%" in col_lower or "ans%" in col_lower or "aband%" in col_lower:
-                is_percent = True
+            col_clean = col.strip().upper()
+
+            # Determine formatting type
+            is_percent = col_clean in percent_cols
+            is_round = col_clean in round_cols
 
             target = None
             inverse = False
-            if col_lower in ["ans%", "sl%", "entry level %", "second level %", "third level %"]:
+            col_lower = col_clean.lower()
+
+            if col_lower in ["ans%", "sl%", "entry level%", "second level%", "third level%"]:
                 target = 0.95
                 inverse = True
             elif col_lower == "cms aband%":
@@ -138,16 +153,65 @@ def layout_home():
             elif col_lower == "aht":
                 target = 130
 
+            # Label overrides
             label = col
-            if col_lower == "entry level %":
+            if col_lower == "entry level%":
                 label = "ENTRY TCBH"
-            elif col_lower == "second level %":
+            elif col_lower == "second level%":
                 label = "SECOND TCBH"
-            elif col_lower == "third level %":
+            elif col_lower == "third level%":
                 label = "THIRD TCBH"
 
-            kpi_cards.append(kpi_card(label, val, is_percent=is_percent, target=target, inverse=inverse))
+            # Format display value
+            if val is None or (isinstance(val, float) and pd.isna(val)):
+                display_val = "N/A"
+            else:
+                try:
+                    if is_percent:
+                        display_val = f"{float(val):.2%}"
+                    elif is_round:
+                        display_val = f"{int(round(float(val))):,}"
+                    else:
+                        if isinstance(val, (int, float)) and float(val).is_integer():
+                            display_val = f"{int(val):,}"
+                        else:
+                            display_val = f"{float(val):,.2f}"
+                except:
+                    display_val = str(val)
 
+            # Color
+            color = "black"
+            try:
+                val_f = float(val)
+            except:
+                val_f = None
+
+            if target is not None and val_f is not None:
+                if inverse:
+                    color = "green" if val_f >= target else "red"
+                else:
+                    color = "red" if val_f > target else "green"
+
+            # Card
+            card_style = {
+                "textAlign": "center",
+                "width": "10rem",
+                "margin": "4px",
+                "backgroundColor": "#f8f9fa",
+                "borderRadius": "0.375rem",
+                "boxShadow": "0 0.125rem 0.25rem rgba(0,0,0,0.075)"
+            }
+
+            kpi_cards.append(
+                dbc.Card([
+                    dbc.CardBody([
+                        html.H6(label, className="text-muted", style={"fontWeight": "600"}),
+                        html.H4(display_val, style={"color": color, "fontWeight": "700"})
+                    ])
+                ], style=card_style)
+            )
+
+    # SL% for each region
     for region, mtd_row, sheet_name in [
         ("KERALA SL%", kerala_mtd, "Kerala"),
         ("TAMILNADU SL%", tamilnadu_mtd, "Tamilnadu"),
@@ -168,7 +232,6 @@ def layout_home():
         html.H3("Reports"),
         html.Ul([html.Li(html.A(sheet, href=f"/{sheet.replace(' ', '_')}")) for sheet in sheets.keys()])
     ], fluid=True)
-
 # === Navigation Buttons ===
 def nav_buttons():
     return dbc.ButtonGroup([
@@ -281,4 +344,3 @@ import os
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8050))
     app.run(host="0.0.0.0", port=port)
-
