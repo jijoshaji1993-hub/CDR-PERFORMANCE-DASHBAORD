@@ -26,7 +26,7 @@ def format_display_values(df):
 
     # Define formatting rules
     percent_cols_to_multiply = [
-        "SHORT CALL%", "IVRS ANS%", "ANS %", "CMS Aband %",
+        "SHORT CALL%", "IVRS ANS%", "ANS%", "CMS Aband%",
         "SL%", "SL %", "Entry Level %", "Second Level %", "Third Level %"
     ]
     round_cols = ["AHT", "IVRS AHT", "AVG WAIT TIME"]
