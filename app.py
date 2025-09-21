@@ -23,24 +23,32 @@ def format_date_columns(df):
 # === Format display values ===
 def format_display_values(df):
     df2 = df.copy()
-    percent_cols = ["SHORT CALL%", "IVRS ANS%", "ANS %", "CMS Aband %", "SL%", "SL %", "Entry Level %", "Second Level %", "Third Level %"]
+
+    # Define formatting rules
+    percent_cols_to_multiply = [
+        "SHORT CALL%", "IVRS ANS%", "ANS %", "CMS Aband %",
+        "SL%", "SL %", "Entry Level %", "Second Level %", "Third Level %"
+    ]
     round_cols = ["AHT", "IVRS AHT", "AVG WAIT TIME"]
 
     for col in df2.columns:
         col_clean = col.strip().lower()
 
-        if any(p.lower() == col_clean for p in percent_cols):
+        # Handle percentage columns (multiply by 100 before formatting)
+        if col.strip() in percent_cols_to_multiply:
             try:
-                df2[col] = pd.to_numeric(df2[col], errors='coerce') / 100.0
-                df2[col] = df2[col].map(lambda x: f"{x:.2%}" if pd.notna(x) else "N/A")
+                df2[col] = pd.to_numeric(df2[col], errors='coerce') * 100
+                df2[col] = df2[col].map(lambda x: f"{x:.2f}%" if pd.notna(x) else "N/A")
             except Exception as e:
                 print(f"Error formatting percentage column {col}: {e}")
 
-        elif any(r.lower() == col_clean for r in round_cols):
+        # Handle rounded integer columns (AHT etc.)
+        elif col.strip() in round_cols:
             try:
                 df2[col] = pd.to_numeric(df2[col], errors='coerce').round(0).astype("Int64").astype(str)
             except Exception as e:
                 print(f"Error formatting round column {col}: {e}")
+
     return df2
 
 # === Load Excel File ===
