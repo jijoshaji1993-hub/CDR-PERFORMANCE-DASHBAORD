@@ -7,15 +7,6 @@ import plotly.express as px
 import io
 import base64
 
-# === Load Excel File ===
-FILE_PATH = "Result.xlsx"
-xls = pd.ExcelFile(FILE_PATH)
-sheets = {sheet: pd.read_excel(xls, sheet_name=sheet) for sheet in xls.sheet_names}
-
-# Strip column name spaces for all sheets
-for sheet_name in sheets:
-    sheets[sheet_name].columns = sheets[sheet_name].columns.str.strip()
-
 # === Format date columns ===
 def format_date_columns(df):
     df2 = df.copy()
@@ -29,12 +20,42 @@ def format_date_columns(df):
                 print(f"Error formatting date column {col}: {e}")
     return df2
 
+# === Format display values ===
+def format_display_values(df):
+    df2 = df.copy()
+    percent_cols = ["SHORT CALL%", "IVRS ANS%", "ANS %", "CMS Aband %", "SL%", "SL %", "Entry Level %", "Second Level %", "Third Level %"]
+    round_cols = ["AHT", "IVRS AHT", "AVG WAIT TIME"]
+
+    for col in df2.columns:
+        col_clean = col.strip().lower()
+
+        if any(p.lower() == col_clean for p in percent_cols):
+            try:
+                df2[col] = pd.to_numeric(df2[col], errors='coerce') / 100.0
+                df2[col] = df2[col].map(lambda x: f"{x:.2%}" if pd.notna(x) else "N/A")
+            except Exception as e:
+                print(f"Error formatting percentage column {col}: {e}")
+
+        elif any(r.lower() == col_clean for r in round_cols):
+            try:
+                df2[col] = pd.to_numeric(df2[col], errors='coerce').round(0).astype("Int64").astype(str)
+            except Exception as e:
+                print(f"Error formatting round column {col}: {e}")
+    return df2
+
+# === Load Excel File ===
+FILE_PATH = "Result.xlsx"
+xls = pd.ExcelFile(FILE_PATH)
+sheets = {sheet: pd.read_excel(xls, sheet_name=sheet) for sheet in xls.sheet_names}
+
+# Strip column name spaces for all sheets
+for sheet_name in sheets:
+    sheets[sheet_name].columns = sheets[sheet_name].columns.str.strip()
+
+# Apply formatting to all sheets
 for sheet_name in sheets:
     sheets[sheet_name] = format_date_columns(sheets[sheet_name])
-
-# === Dash App Setup ===
-app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP], suppress_callback_exceptions=True)
-app.title = "CDR Performance Dashboard"
+    sheets[sheet_name] = format_display_values(sheets[sheet_name])
 
 # === Get MTD row ===
 def get_mtd_row(df, sheet_name):
@@ -58,6 +79,10 @@ dashboard_mtd = get_mtd_row(sheets.get("Dashboard", pd.DataFrame()), "Dashboard"
 kerala_mtd = get_mtd_row(sheets.get("Kerala", pd.DataFrame()), "Kerala")
 tamilnadu_mtd = get_mtd_row(sheets.get("Tamilnadu", pd.DataFrame()), "Tamilnadu")
 chennai_mtd = get_mtd_row(sheets.get("Chennai", pd.DataFrame()), "Chennai")
+
+# === Dash App Setup ===
+app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP], suppress_callback_exceptions=True)
+app.title = "CDR Performance Dashboard"
 
 # === KPI Card ===
 def kpi_card(label, value, is_percent=False, target=None, inverse=False):
@@ -276,9 +301,6 @@ def download_file(n_csv, n_excel, pathname):
         return dict(content=b64, filename=f"{sheet_name}.xlsx", base64=True)
 
 # === Run Server ===
-import os
-
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8050))
     app.run(host="0.0.0.0", port=port)
-
