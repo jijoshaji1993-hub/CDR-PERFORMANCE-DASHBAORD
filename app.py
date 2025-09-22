@@ -590,7 +590,7 @@ def download_all_reports(n_excel, n_csv):
 # === App layout and server start ===
 
 app.layout = html.Div([
-    dcc.Location(id="url"),a
+    dcc.Location(id="url"),
     html.Div(id="page-content")
 ])
 
